@@ -1,3 +1,6 @@
+# Superpowers internal
+.superpowers/
+
 # Logs
 logs
 *.log
@@ -23,3 +26,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel

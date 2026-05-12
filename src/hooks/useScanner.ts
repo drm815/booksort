@@ -28,13 +28,23 @@ export function useScanner({ onScan }: Options) {
   const start = useCallback(async () => {
     setScannerError(null)
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setScannerError('이 브라우저는 카메라를 지원하지 않습니다. Chrome 또는 Safari를 사용해주세요.')
+        return
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       })
       streamRef.current = stream
       if (!videoRef.current) return
       videoRef.current.srcObject = stream
-      await videoRef.current.play()
+      try {
+        await videoRef.current.play()
+      } catch {
+        // autoplay 정책으로 play() 실패 시 muted 재시도
+        videoRef.current.muted = true
+        await videoRef.current.play()
+      }
 
       // BarcodeDetector 우선 사용 (Android Chrome, iOS Safari 17+)
       if ('BarcodeDetector' in window) {
@@ -84,7 +94,14 @@ export function useScanner({ onScan }: Options) {
         })
       }
     } catch (e) {
-      setScannerError('카메라 접근 권한이 필요합니다.')
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('Permission') || msg.includes('permission') || msg.includes('NotAllowed') || msg.includes('denied')) {
+        setScannerError('카메라 접근 권한이 필요합니다. 브라우저 설정에서 카메라를 허용해주세요.')
+      } else if (msg.includes('NotFound') || msg.includes('Devices')) {
+        setScannerError('카메라를 찾을 수 없습니다.')
+      } else {
+        setScannerError(`카메라 오류: ${msg}`)
+      }
     }
   }, [onScan])
 
