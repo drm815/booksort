@@ -19,14 +19,16 @@ export default function App() {
 
   const handleScan = (bookId: string) => {
     setScanError(null)
-    const found = findShelfNeighbors(books, bookId)
+    // 바코드에서 읽힌 원시값 그대로 검색 (앞뒤 공백 제거)
+    const trimmed = bookId.trim()
+    const found = findShelfNeighbors(books, trimmed)
     if (!found) {
-      setScanError(`등록번호 "${bookId}"를 찾을 수 없습니다.`)
+      setScanError(`"${trimmed}" — 도서목록에 없습니다. (스캔값 확인용)`)
       return
     }
     setRecentScans((prev) => {
-      const filtered = prev.filter((r) => r.id !== bookId)
-      return [{ id: bookId, title: found.current.title }, ...filtered].slice(0, 5)
+      const filtered = prev.filter((r) => r.id !== trimmed)
+      return [{ id: trimmed, title: found.current.title }, ...filtered].slice(0, 5)
     })
     setResult(found)
   }

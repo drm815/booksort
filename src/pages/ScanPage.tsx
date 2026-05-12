@@ -19,6 +19,12 @@ interface Props {
 
 export function ScanPage({ onScan, recentScans, loading, error, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>('camera')
+  const [lastScanned, setLastScanned] = useState<string | null>(null)
+
+  const handleScan = (bookId: string) => {
+    setLastScanned(bookId)
+    onScan(bookId)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -63,9 +69,16 @@ export function ScanPage({ onScan, recentScans, loading, error, onRefresh }: Pro
 
         {/* 탭 콘텐츠 */}
         {tab === 'camera' ? (
-          <ScannerView onScan={onScan} />
+          <ScannerView onScan={handleScan} />
         ) : (
-          <ManualInput onSubmit={onScan} />
+          <ManualInput onSubmit={handleScan} />
+        )}
+
+        {/* 마지막 스캔값 디버그 표시 */}
+        {lastScanned && (
+          <div className="bg-gray-100 rounded-lg px-4 py-2 text-xs text-gray-500">
+            마지막 스캔값: <span className="font-mono font-bold text-gray-800">{lastScanned}</span>
+          </div>
         )}
 
         {/* 최근 스캔 */}
