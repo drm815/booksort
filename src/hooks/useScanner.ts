@@ -37,13 +37,17 @@ export function useScanner({ onScan }: Options) {
       })
       streamRef.current = stream
       if (!videoRef.current) return
-      videoRef.current.srcObject = stream
+      const video = videoRef.current
+      video.setAttribute('playsinline', '')
+      video.setAttribute('muted', '')
+      video.muted = true
+      video.srcObject = stream
       try {
-        await videoRef.current.play()
+        await video.play()
       } catch {
-        // autoplay 정책으로 play() 실패 시 muted 재시도
-        videoRef.current.muted = true
-        await videoRef.current.play()
+        // autoplay 정책으로 play() 실패 시 재시도
+        await new Promise((r) => setTimeout(r, 100))
+        await video.play()
       }
 
       // BarcodeDetector 우선 사용 (Android Chrome, iOS Safari 17+)

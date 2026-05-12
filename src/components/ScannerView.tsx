@@ -17,7 +17,7 @@ export function ScannerView({ onScan }: Props) {
 
   return (
     <div className="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden">
-      <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+      <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
       {/* 스캔 가이드 박스 */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="w-2/3 h-1/3 relative">
