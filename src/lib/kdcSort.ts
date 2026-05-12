@@ -1,14 +1,15 @@
 import type { Book } from '../types'
 
 // 청구기호를 분류번호와 저자기호로 분리
-// 예: "813.6-한17ㅊ" → { classNum: 813.6, authorMark: "한17ㅊ" }
+// 예: "911.05 곽73ㄱ" → { classNum: 911.05, authorMark: "곽73ㄱ" }
+// 예: "909 송64ㅈ v.2" → { classNum: 909, authorMark: "송64ㅈ v.2" }
 function parseCallNumber(callNumber: string): { classNum: number; authorMark: string } {
-  const dashIdx = callNumber.indexOf('-')
-  if (dashIdx === -1) {
+  const spaceIdx = callNumber.indexOf(' ')
+  if (spaceIdx === -1) {
     return { classNum: parseFloat(callNumber) || 0, authorMark: '' }
   }
-  const classNum = parseFloat(callNumber.slice(0, dashIdx)) || 0
-  const authorMark = callNumber.slice(dashIdx + 1)
+  const classNum = parseFloat(callNumber.slice(0, spaceIdx)) || 0
+  const authorMark = callNumber.slice(spaceIdx + 1)
   return { classNum, authorMark }
 }
 
