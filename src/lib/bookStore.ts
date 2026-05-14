@@ -42,11 +42,22 @@ export async function fetchBooks(): Promise<Book[]> {
   const url = import.meta.env.VITE_SHEET_CSV_URL
   if (!url) throw new Error('VITE_SHEET_CSV_URL 환경변수가 설정되지 않았습니다.')
 
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`도서목록을 불러오지 못했습니다. (${res.status})`)
-
-  const text = await res.text()
-  const books = sortBooks(parseBooks(text))
-  saveCache(books)
-  return books
+  // 15초 타임아웃
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    if (!res.ok) throw new Error(`도서목록을 불러오지 못했습니다. (${res.status})`)
+    const text = await res.text()
+    const books = sortBooks(parseBooks(text))
+    saveCache(books)
+    return books
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('도서목록 로딩 시간이 초과됐습니다. 네트워크를 확인해주세요.')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 }
