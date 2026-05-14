@@ -5,7 +5,7 @@ interface Props {
 }
 
 export function ScannerView({ onScan }: Props) {
-  const { videoRef, error } = useScanner({ onScan })
+  const { videoRef, error, status } = useScanner({ onScan })
 
   if (error) {
     return (
@@ -18,6 +18,10 @@ export function ScannerView({ onScan }: Props) {
   return (
     <div className="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden">
       <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+      {/* 상태 표시 */}
+      <div className="absolute top-2 left-0 right-0 flex justify-center">
+        <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">{status}</span>
+      </div>
       {/* 스캔 가이드 박스 */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="w-2/3 h-1/3 relative">

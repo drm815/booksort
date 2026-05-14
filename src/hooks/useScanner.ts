@@ -10,6 +10,22 @@ declare class BarcodeDetector {
   detect(image: HTMLVideoElement | ImageBitmap): Promise<Array<{ rawValue: string }>>
 }
 
+function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (video.readyState >= 2) { resolve(); return }
+    const onReady = () => { cleanup(); resolve() }
+    const onError = (e: Event) => { cleanup(); reject(e) }
+    const cleanup = () => {
+      video.removeEventListener('loadeddata', onReady)
+      video.removeEventListener('error', onError)
+    }
+    video.addEventListener('loadeddata', onReady)
+    video.addEventListener('error', onError)
+    // 5초 타임아웃
+    setTimeout(() => { cleanup(); resolve() }, 5000)
+  })
+}
+
 export function useScanner({ onScan }: Options) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -17,6 +33,7 @@ export function useScanner({ onScan }: Options) {
   const lastValueRef = useRef<string | null>(null)
   const lastTimeRef = useRef<number>(0)
   const [error, setScannerError] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>('초기화 중...')
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -29,28 +46,37 @@ export function useScanner({ onScan }: Options) {
     setScannerError(null)
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setScannerError('이 브라우저는 카메라를 지원하지 않습니다. Chrome 또는 Safari를 사용해주세요.')
+        setScannerError('이 브라우저는 카메라를 지원하지 않습니다. Chrome을 사용해주세요.')
         return
       }
+
+      setStatus('카메라 연결 중...')
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       })
       streamRef.current = stream
+
       if (!videoRef.current) return
       const video = videoRef.current
-      video.setAttribute('playsinline', '')
-      video.setAttribute('muted', '')
-      video.muted = true
+
+      // srcObject 설정 후 메타데이터 로드 대기
       video.srcObject = stream
+      video.muted = true
+      video.playsInline = true
+
+      setStatus('영상 로드 중...')
+      await waitForVideoReady(video)
+
+      setStatus('재생 시작...')
       try {
         await video.play()
       } catch {
-        // autoplay 정책으로 play() 실패 시 재시도
-        await new Promise((r) => setTimeout(r, 100))
+        video.muted = true
         await video.play()
       }
 
-      // BarcodeDetector 우선 사용 (Android Chrome, iOS Safari 17+)
+      setStatus('스캔 준비 완료')
+
       if ('BarcodeDetector' in window) {
         const detector = new BarcodeDetector({
           formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'upc_a', 'upc_e', 'codabar'],
@@ -66,7 +92,6 @@ export function useScanner({ onScan }: Options) {
             if (results.length > 0) {
               const value = results[0].rawValue
               const now = Date.now()
-              // 같은 값은 2초 내 재인식 무시
               if (value !== lastValueRef.current || now - lastTimeRef.current > 2000) {
                 lastValueRef.current = value
                 lastTimeRef.current = now
@@ -74,7 +99,7 @@ export function useScanner({ onScan }: Options) {
               }
             }
           } catch {
-            // 인식 실패는 정상 (바코드 없는 프레임)
+            // 인식 실패는 정상
           }
           rafRef.current = requestAnimationFrame(scan)
         }
@@ -93,7 +118,7 @@ export function useScanner({ onScan }: Options) {
               onScan(value)
             }
           } else if (err && !(err instanceof NotFoundException)) {
-            // 실제 오류만 무시 (인식 실패는 정상)
+            // 실제 오류만 무시
           }
         })
       }
@@ -114,5 +139,5 @@ export function useScanner({ onScan }: Options) {
     return () => stop()
   }, [start, stop])
 
-  return { videoRef, error }
+  return { videoRef, error, status }
 }
