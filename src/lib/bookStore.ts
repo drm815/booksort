@@ -54,7 +54,7 @@ export async function fetchBooks(): Promise<Book[]> {
     return books
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('도서목록 로딩 시간이 초과됐습니다. 네트워크를 확인해주세요.')
+      throw new Error('도서목록 로딩 시간이 초과됐습니다. 네트워크를 확인해주세요.', { cause: e })
     }
     throw e
   } finally {

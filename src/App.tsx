@@ -61,11 +61,12 @@ interface RecentItem {
 }
 
 export default function App() {
-  if (isInAppBrowser()) return <InAppBrowserWarning />
   const { books, loading, error, refresh } = useBookStore()
   const [result, setResult] = useState<ShelfResult | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [recentScans, setRecentScans] = useState<RecentItem[]>([])
+
+  if (isInAppBrowser()) return <InAppBrowserWarning />
 
   const handleScan = (bookId: string) => {
     setScanError(null)

@@ -135,6 +135,7 @@ export function useScanner({ onScan }: Options) {
   }, [onScan])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     start()
     return () => stop()
   }, [start, stop])

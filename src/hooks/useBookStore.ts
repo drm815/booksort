@@ -21,6 +21,7 @@ export function useBookStore() {
     }
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
   return { books, loading, error, refresh: () => load(true) }
