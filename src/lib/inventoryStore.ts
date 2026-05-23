@@ -6,13 +6,13 @@ export async function submitInventoryScan(bookId: string): Promise<void> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10000)
   try {
-    const res = await fetch(SCRIPT_URL, {
+    await fetch(SCRIPT_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: bookId }),
       signal: controller.signal,
     })
-    if (!res.ok) throw new Error(`전송 실패 (${res.status})`)
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
       throw new Error('전송 시간이 초과됐습니다.', { cause: e })
