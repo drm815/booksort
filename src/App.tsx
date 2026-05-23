@@ -3,7 +3,10 @@ import { useBookStore } from './hooks/useBookStore'
 import { findShelfNeighbors } from './lib/shelfFinder'
 import { ScanPage } from './pages/ScanPage'
 import { ResultPage } from './pages/ResultPage'
+import { InventoryPage } from './pages/InventoryPage'
 import type { ShelfResult } from './types'
+
+type Mode = 'shelf' | 'inventory'
 
 function isInAppBrowser(): boolean {
   const ua = navigator.userAgent
@@ -65,12 +68,16 @@ export default function App() {
   const [result, setResult] = useState<ShelfResult | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [recentScans, setRecentScans] = useState<RecentItem[]>([])
+  const [mode, setMode] = useState<Mode>('shelf')
 
   if (isInAppBrowser()) return <InAppBrowserWarning />
 
+  if (mode === 'inventory') {
+    return <InventoryPage onExit={() => setMode('shelf')} />
+  }
+
   const handleScan = (bookId: string) => {
     setScanError(null)
-    // 바코드에서 읽힌 원시값 그대로 검색 (앞뒤 공백 제거)
     const trimmed = bookId.trim()
     const found = findShelfNeighbors(books, trimmed)
     if (!found) {
@@ -83,8 +90,6 @@ export default function App() {
     })
     setResult(found)
   }
-
-  // 로딩 중이어도 UI는 보여주고 배너만 표시
 
   if (result) {
     return <ResultPage result={result} onBack={() => setResult(null)} />
@@ -103,6 +108,7 @@ export default function App() {
         loading={loading}
         error={scanError ?? error}
         onRefresh={refresh}
+        onInventory={() => setMode('inventory')}
       />
     </>
   )

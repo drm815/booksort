@@ -15,9 +15,10 @@ interface Props {
   loading: boolean
   error: string | null
   onRefresh: () => void
+  onInventory: () => void
 }
 
-export function ScanPage({ onScan, recentScans, loading, error, onRefresh }: Props) {
+export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInventory }: Props) {
   const [tab, setTab] = useState<Tab>('camera')
   const [lastScanned, setLastScanned] = useState<string | null>(null)
 
@@ -31,13 +32,21 @@ export function ScanPage({ onScan, recentScans, loading, error, onRefresh }: Pro
       {/* 헤더 */}
       <header className="bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
         <h1 className="font-bold text-lg">📚 책정리 도우미</h1>
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="text-white text-sm bg-blue-500 rounded-full px-3 py-1 active:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? '로딩중...' : '🔄 새로고침'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onInventory}
+            className="text-white text-sm bg-blue-500 rounded-full px-3 py-1 active:bg-blue-700"
+          >
+            📋 장서점검
+          </button>
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="text-white text-sm bg-blue-500 rounded-full px-3 py-1 active:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? '로딩중...' : '🔄'}
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
