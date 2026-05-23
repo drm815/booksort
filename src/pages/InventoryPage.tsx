@@ -31,7 +31,7 @@ export function InventoryPage({ onExit }: Props) {
 
     if (scanned.has(trimmed)) {
       setScanStatus('duplicate')
-      setLog(prev => [{ id: trimmed, status: 'duplicate', message: '중복' }, ...prev].slice(0, 50))
+      setLog(prev => [{ id: trimmed, status: 'duplicate' as const, message: '중복' }, ...prev].slice(0, 50))
       return
     }
 
@@ -40,11 +40,11 @@ export function InventoryPage({ onExit }: Props) {
       await submitInventoryScan(trimmed)
       setScanned(prev => new Set(prev).add(trimmed))
       setScanStatus('ok')
-      setLog(prev => [{ id: trimmed, status: 'ok' }, ...prev].slice(0, 50))
+      setLog(prev => [{ id: trimmed, status: 'ok' as const }, ...prev].slice(0, 50))
     } catch (e) {
       setScanStatus('error')
       const msg = e instanceof Error ? e.message : '오류'
-      setLog(prev => [{ id: trimmed, status: 'error', message: msg }, ...prev].slice(0, 50))
+      setLog(prev => [{ id: trimmed, status: 'error' as const, message: msg }, ...prev].slice(0, 50))
     }
   }, [scanned])
 
