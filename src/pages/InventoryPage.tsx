@@ -16,9 +16,24 @@ interface Props {
   onExit: () => void
 }
 
-function beep(type: 'ok' | 'duplicate' | 'error') {
+// AudioContext는 한 번만 생성해서 재사용 (매번 생성하면 suspended 상태)
+let audioCtx: AudioContext | null = null
+
+function getAudioContext(): AudioContext | null {
   try {
-    const ctx = new AudioContext()
+    if (!audioCtx) audioCtx = new AudioContext()
+    return audioCtx
+  } catch {
+    return null
+  }
+}
+
+async function beep(type: 'ok' | 'duplicate' | 'error') {
+  const ctx = getAudioContext()
+  if (!ctx) return
+  try {
+    // 브라우저 정책으로 suspended된 경우 resume
+    if (ctx.state === 'suspended') await ctx.resume()
     const play = (freq: number, start: number, duration: number) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -31,11 +46,11 @@ function beep(type: 'ok' | 'duplicate' | 'error') {
       osc.start(ctx.currentTime + start)
       osc.stop(ctx.currentTime + start + duration)
     }
-    if (type === 'ok') play(1200, 0, 0.12)
-    else if (type === 'duplicate') play(600, 0, 0.2)
-    else { play(400, 0, 0.15); play(400, 0.2, 0.15) }
+    if (type === 'ok') play(1200, 0, 0.15)
+    else if (type === 'duplicate') play(600, 0, 0.25)
+    else { play(400, 0, 0.15); play(400, 0.22, 0.15) }
   } catch {
-    // AudioContext not available (silent fail)
+    // 소리 재생 실패는 무시
   }
 }
 
@@ -46,12 +61,21 @@ export function InventoryPage({ onExit }: Props) {
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [lastId, setLastId] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<{ id: string; type: 'ok' | 'duplicate' | 'error' } | null>(null)
+  const [audioReady, setAudioReady] = useState(false)
 
   useEffect(() => {
     if (!flashId) return
     const timer = setTimeout(() => setFlashId(null), 1500)
     return () => clearTimeout(timer)
   }, [flashId])
+
+  // 첫 사용자 터치로 AudioContext 활성화
+  const unlockAudio = useCallback(async () => {
+    const ctx = getAudioContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') await ctx.resume()
+    setAudioReady(ctx.state === 'running')
+  }, [])
 
   const handleScan = useCallback(async (bookId: string) => {
     const trimmed = bookId.trim()
@@ -101,7 +125,7 @@ export function InventoryPage({ onExit }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col" onClick={unlockAudio}>
       <header className="bg-green-600 text-white px-4 py-3 flex justify-between items-center">
         <div>
           <h1 className="font-bold text-lg">📋 장서점검</h1>
@@ -114,6 +138,19 @@ export function InventoryPage({ onExit }: Props) {
           ← 돌아가기
         </button>
       </header>
+
+      {/* 소리 활성화 안내 */}
+      {!audioReady && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
+          <span className="text-yellow-800 text-xs">🔇 화면을 한 번 터치하면 소리가 활성화됩니다</span>
+          <button
+            onClick={unlockAudio}
+            className="text-xs bg-yellow-200 text-yellow-900 rounded-full px-3 py-1 active:bg-yellow-300"
+          >
+            소리 켜기
+          </button>
+        </div>
+      )}
 
       {flashId && (
         <div className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none`}>
