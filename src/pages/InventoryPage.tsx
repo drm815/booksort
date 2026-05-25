@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { ScannerView } from '../components/ScannerView'
 import { ManualInput } from '../components/ManualInput'
 import { submitInventoryScan } from '../lib/inventoryStore'
@@ -16,12 +16,42 @@ interface Props {
   onExit: () => void
 }
 
+function beep(type: 'ok' | 'duplicate' | 'error') {
+  try {
+    const ctx = new AudioContext()
+    const play = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = freq
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + start)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + duration)
+    }
+    if (type === 'ok') play(1200, 0, 0.12)
+    else if (type === 'duplicate') play(600, 0, 0.2)
+    else { play(400, 0, 0.15); play(400, 0.2, 0.15) }
+  } catch {
+    // AudioContext not available (silent fail)
+  }
+}
+
 export function InventoryPage({ onExit }: Props) {
   const [tab, setTab] = useState<Tab>('camera')
   const [scanned, setScanned] = useState<Set<string>>(new Set())
   const [log, setLog] = useState<ScanRecord[]>([])
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [lastId, setLastId] = useState<string | null>(null)
+  const [flashId, setFlashId] = useState<{ id: string; type: 'ok' | 'duplicate' | 'error' } | null>(null)
+
+  useEffect(() => {
+    if (!flashId) return
+    const timer = setTimeout(() => setFlashId(null), 1500)
+    return () => clearTimeout(timer)
+  }, [flashId])
 
   const handleScan = useCallback(async (bookId: string) => {
     const trimmed = bookId.trim()
@@ -31,6 +61,8 @@ export function InventoryPage({ onExit }: Props) {
 
     if (scanned.has(trimmed)) {
       setScanStatus('duplicate')
+      setFlashId({ id: trimmed, type: 'duplicate' })
+      beep('duplicate')
       setLog(prev => [{ id: trimmed, status: 'duplicate' as const, message: '중복' }, ...prev].slice(0, 50))
       return
     }
@@ -40,10 +72,14 @@ export function InventoryPage({ onExit }: Props) {
       await submitInventoryScan(trimmed)
       setScanned(prev => new Set(prev).add(trimmed))
       setScanStatus('ok')
+      setFlashId({ id: trimmed, type: 'ok' })
+      beep('ok')
       setLog(prev => [{ id: trimmed, status: 'ok' as const }, ...prev].slice(0, 50))
     } catch (e) {
       setScanStatus('error')
       const msg = e instanceof Error ? e.message : '오류'
+      setFlashId({ id: trimmed, type: 'error' })
+      beep('error')
       setLog(prev => [{ id: trimmed, status: 'error' as const, message: msg }, ...prev].slice(0, 50))
     }
   }, [scanned])
@@ -57,6 +93,12 @@ export function InventoryPage({ onExit }: Props) {
   }
 
   const banner = statusBanner()
+
+  const flashColors = {
+    ok: 'bg-green-500',
+    duplicate: 'bg-orange-400',
+    error: 'bg-red-500',
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -72,6 +114,14 @@ export function InventoryPage({ onExit }: Props) {
           ← 돌아가기
         </button>
       </header>
+
+      {flashId && (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none`}>
+          <div className={`${flashColors[flashId.type]} rounded-2xl px-8 py-5 shadow-2xl animate-pulse`}>
+            <p className="text-white font-mono text-2xl font-bold tracking-widest">{flashId.id}</p>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
         {banner && (
