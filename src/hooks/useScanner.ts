@@ -26,12 +26,16 @@ function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
   })
 }
 
+const CONFIRM_COUNT = 3 // 연속 N번 같은 값이어야 확정
+
 export function useScanner({ onScan }: Options) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const rafRef = useRef<number | null>(null)
   const lastValueRef = useRef<string | null>(null)
   const lastTimeRef = useRef<number>(0)
+  const candidateRef = useRef<string | null>(null)   // 현재 후보 값
+  const candidateCountRef = useRef<number>(0)         // 연속 감지 횟수
   const [error, setScannerError] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('초기화 중...')
 
@@ -91,12 +95,27 @@ export function useScanner({ onScan }: Options) {
             const results = await detector.detect(videoRef.current)
             if (results.length > 0) {
               const value = results[0].rawValue
-              const now = Date.now()
-              if (value !== lastValueRef.current || now - lastTimeRef.current > 2000) {
-                lastValueRef.current = value
-                lastTimeRef.current = now
-                onScan(value)
+              // 후보 누적
+              if (value === candidateRef.current) {
+                candidateCountRef.current += 1
+              } else {
+                candidateRef.current = value
+                candidateCountRef.current = 1
               }
+              // 연속 N번 확인되면 확정
+              if (candidateCountRef.current >= CONFIRM_COUNT) {
+                const now = Date.now()
+                if (value !== lastValueRef.current || now - lastTimeRef.current > 2000) {
+                  lastValueRef.current = value
+                  lastTimeRef.current = now
+                  candidateCountRef.current = 0 // 리셋
+                  onScan(value)
+                }
+              }
+            } else {
+              // 인식 안 되면 후보 리셋
+              candidateRef.current = null
+              candidateCountRef.current = 0
             }
           } catch {
             // 인식 실패는 정상
