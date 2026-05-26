@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { ScannerView } from '../components/ScannerView'
-import { ManualInput } from '../components/ManualInput'
+
+const PREFIX = 'JRM'
 
 type Tab = 'camera' | 'manual'
 
@@ -19,12 +20,21 @@ interface Props {
 }
 
 export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInventory }: Props) {
-  const [tab, setTab] = useState<Tab>('camera')
-  const [lastScanned, setLastScanned] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('manual')
+  const [numSuffix, setNumSuffix] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const handleScan = (bookId: string) => {
-    setLastScanned(bookId)
     onScan(bookId)
+  }
+
+  const handleNumSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!numSuffix) return
+    const bookId = PREFIX + numSuffix
+    setNumSuffix('')
+    setTimeout(() => inputRef.current?.focus(), 50)
+    handleScan(bookId)
   }
 
   return (
@@ -77,17 +87,34 @@ export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInv
         </div>
 
         {/* 탭 콘텐츠 */}
-        {tab === 'camera' ? (
-          <ScannerView onScan={handleScan} />
-        ) : (
-          <ManualInput onSubmit={handleScan} />
-        )}
-
-        {/* 마지막 스캔값 디버그 표시 */}
-        {lastScanned && (
-          <div className="bg-gray-100 rounded-lg px-4 py-2 text-xs text-gray-500">
-            마지막 스캔값: <span className="font-mono font-bold text-gray-800">{lastScanned}</span>
-          </div>
+        {tab === 'camera' && <ScannerView onScan={handleScan} />}
+        {tab === 'manual' && (
+          <form onSubmit={handleNumSubmit} className="flex flex-col gap-3">
+            <div className="flex items-center border-2 border-blue-500 rounded-xl bg-white overflow-hidden focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200">
+              <span className="pl-4 py-4 text-2xl font-mono font-bold text-blue-600 select-none pointer-events-none">
+                {PREFIX}
+              </span>
+              <input
+                ref={inputRef}
+                type="tel"
+                value={numSuffix}
+                onChange={(e) => setNumSuffix(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="022999"
+                className="flex-1 pr-4 py-4 text-2xl font-mono tracking-widest focus:outline-none bg-transparent"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                autoFocus
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!numSuffix}
+              className="w-full py-4 rounded-xl text-lg font-bold bg-blue-600 text-white active:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              검색 → {numSuffix ? `${PREFIX}${numSuffix}` : ''}
+            </button>
+          </form>
         )}
 
         {/* 최근 스캔 */}
