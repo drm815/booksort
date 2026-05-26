@@ -20,25 +20,46 @@ export function OcrScannerView({ onScan }: Props) {
       <div className="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden">
         <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
 
-        {/* 등록번호 인식 영역 표시 — 하단 1/3 */}
-        <div className="absolute bottom-0 left-0 right-0 h-1/3 border-t-2 border-green-400 border-dashed">
-          <span className="absolute top-1 left-2 text-green-300 text-xs bg-black/50 px-2 py-0.5 rounded">
-            등록번호 영역
-          </span>
+        {/* 어두운 오버레이 — 박스 바깥 영역 */}
+        {/* 위 */}
+        <div className="absolute top-0 left-0 right-0" style={{ height: '38%', background: 'rgba(0,0,0,0.5)' }} />
+        {/* 아래 */}
+        <div className="absolute bottom-0 left-0 right-0" style={{ top: '62%', background: 'rgba(0,0,0,0.5)' }} />
+        {/* 왼쪽 */}
+        <div className="absolute left-0" style={{ top: '38%', bottom: '38%', width: '10%', background: 'rgba(0,0,0,0.5)' }} />
+        {/* 오른쪽 */}
+        <div className="absolute right-0" style={{ top: '38%', bottom: '38%', width: '10%', background: 'rgba(0,0,0,0.5)' }} />
+
+        {/* 가이드 박스 테두리 */}
+        <div
+          className="absolute"
+          style={{ top: '38%', left: '10%', right: '10%', bottom: '38%' }}
+        >
+          {/* 모서리 */}
+          <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-green-400" />
+          <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-green-400" />
+          <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-green-400" />
+          <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-green-400" />
+          {/* 중앙 스캔 라인 */}
+          <div className="absolute top-1/2 left-0 right-0 h-px bg-green-400 opacity-60" />
         </div>
 
-        {/* 상태 표시 */}
+        {/* 상태 */}
         <div className="absolute top-2 left-0 right-0 flex justify-center">
-          <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">{status}</span>
+          <span className="bg-black/60 text-white text-xs px-3 py-1 rounded-full">{status}</span>
+        </div>
+
+        {/* 인식된 텍스트 — 박스 하단에 표시 */}
+        <div className="absolute left-0 right-0 flex justify-center" style={{ top: '63%' }}>
+          {ocrText ? (
+            <span className="bg-black/70 text-green-300 text-xs font-mono px-3 py-1 rounded-full max-w-[80%] truncate">
+              {ocrText}
+            </span>
+          ) : (
+            <span className="text-white/50 text-xs">등록번호를 박스 안에 맞춰주세요</span>
+          )}
         </div>
       </div>
-
-      {/* OCR 인식 결과 디버그 표시 */}
-      {ocrText ? (
-        <div className="bg-gray-100 rounded-lg px-3 py-2 text-xs text-gray-500 font-mono break-all">
-          인식: {ocrText}
-        </div>
-      ) : null}
 
       {/* 숨겨진 캔버스 (OCR 처리용) */}
       <canvas ref={canvasRef} className="hidden" />

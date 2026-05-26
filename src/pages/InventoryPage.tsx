@@ -1,11 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ScannerView } from '../components/ScannerView'
 import { OcrScannerView } from '../components/OcrScannerView'
 import { submitInventoryScan } from '../lib/inventoryStore'
 
 const PREFIX = 'JRM'
 
-type Tab = 'manual' | 'barcode' | 'ocr'
+type Tab = 'manual' | 'ocr'
 type ScanStatus = 'idle' | 'sending' | 'ok' | 'duplicate' | 'error'
 
 interface ScanRecord {
@@ -188,30 +187,22 @@ export function InventoryPage({ onExit }: Props) {
         )}
 
         {/* 탭 */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <button
             onClick={() => setTab('manual')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
               tab === 'manual' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}
           >
             ⌨️ 번호입력
           </button>
           <button
-            onClick={() => setTab('barcode')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-              tab === 'barcode' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}
-          >
-            📷 바코드
-          </button>
-          <button
             onClick={() => setTab('ocr')}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
               tab === 'ocr' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}
           >
-            🔤 OCR
+            📷 카메라 스캔
           </button>
         </div>
 
@@ -247,7 +238,6 @@ export function InventoryPage({ onExit }: Props) {
           </form>
         )}
 
-        {tab === 'barcode' && <ScannerView onScan={handleScan} />}
         {tab === 'ocr' && <OcrScannerView onScan={handleScan} />}
 
         {/* 스캔 로그 */}
