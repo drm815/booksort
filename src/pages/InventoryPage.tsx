@@ -57,7 +57,7 @@ async function beep(type: 'ok' | 'duplicate' | 'error') {
 
 export function InventoryPage({ onExit }: Props) {
   const [tab, setTab] = useState<Tab>('manual')
-  const [numInput, setNumInput] = useState('')
+  const [numInput, setNumInput] = useState(PREFIX)
   const inputRef = useRef<HTMLInputElement>(null)
   const [scanned, setScanned] = useState<Set<string>>(new Set())
   const [log, setLog] = useState<ScanRecord[]>([])
@@ -116,13 +116,20 @@ export function InventoryPage({ onExit }: Props) {
     if (tab === 'manual') setTimeout(() => inputRef.current?.focus(), 100)
   }, [tab])
 
+  const handleNumChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase()
+    // PREFIX는 항상 유지 — 지우려 하면 무시
+    if (!val.startsWith(PREFIX)) return
+    // PREFIX 이후는 숫자만 허용
+    const suffix = val.slice(PREFIX.length).replace(/[^0-9]/g, '')
+    setNumInput(PREFIX + suffix)
+  }, [])
+
   const handleNumSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    const digits = numInput.trim()
-    if (!digits) return
-    // 이미 영문자로 시작하면 그대로, 숫자만 입력했으면 JRM 붙이기
-    const bookId = /^[A-Za-z]/.test(digits) ? digits.toUpperCase() : `${PREFIX}${digits}`
-    setNumInput('')
+    const bookId = numInput.trim()
+    if (bookId === PREFIX) return   // 숫자 없으면 무시
+    setNumInput(PREFIX)
     setTimeout(() => inputRef.current?.focus(), 50)
     handleScan(bookId)
   }, [numInput, handleScan])
@@ -209,28 +216,20 @@ export function InventoryPage({ onExit }: Props) {
         {/* 번호 직접 입력 */}
         {tab === 'manual' && (
           <form onSubmit={handleNumSubmit} className="flex flex-col gap-3">
-            <div className="flex items-center border-2 border-green-500 rounded-xl overflow-hidden bg-white focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-200">
-              <span className="px-4 py-4 text-lg font-bold text-green-700 bg-green-50 border-r border-green-200 select-none">
-                {PREFIX}
-              </span>
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={numInput}
-                onChange={(e) => setNumInput(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="숫자만 입력"
-                className="flex-1 px-4 py-4 text-xl font-mono tracking-widest focus:outline-none"
-                autoComplete="off"
-              />
-            </div>
-            <p className="text-xs text-gray-400 text-center">
-              입력 후 전송 → <span className="font-mono font-semibold text-gray-600">{PREFIX}{numInput || '______'}</span> 로 등록됩니다
-            </p>
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              value={numInput}
+              onChange={handleNumChange}
+              className="border-2 border-green-500 rounded-xl px-4 py-4 text-2xl font-mono tracking-widest focus:outline-none focus:border-green-600 focus:ring-2 focus:ring-green-200 bg-white"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
             <button
               type="submit"
-              disabled={!numInput}
+              disabled={numInput === PREFIX}
               className="w-full py-4 rounded-xl text-lg font-bold bg-green-600 text-white active:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               등록
