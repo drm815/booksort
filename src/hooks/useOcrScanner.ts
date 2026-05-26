@@ -19,11 +19,11 @@ const BOX_W_RATIO = 0.8
 const BOX_Y_RATIO = 0.38
 const BOX_H_RATIO = 0.24
 
-// GAS OCR 엔드포인트 (장서점검과 별도 URL — CORS 허용 배포)
-const OCR_URL = import.meta.env.VITE_OCR_SCRIPT_URL
+// GAS OCR 엔드포인트 — OCR 전용 URL이 없으면 장서점검 URL 재사용
+const OCR_URL = import.meta.env.VITE_OCR_SCRIPT_URL || import.meta.env.VITE_INVENTORY_SCRIPT_URL
 
 async function callVisionOcr(canvas: HTMLCanvasElement): Promise<string> {
-  if (!OCR_URL) throw new Error('VITE_OCR_SCRIPT_URL 환경변수가 설정되지 않았습니다.')
+  if (!OCR_URL) throw new Error('GAS URL 환경변수가 설정되지 않았습니다.')
   const base64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1]
   const res = await fetch(OCR_URL, {
     method: 'POST',
