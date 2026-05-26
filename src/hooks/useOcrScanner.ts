@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { createWorker } from 'tesseract.js'
+import { createWorker, PSM } from 'tesseract.js'
 
 interface Options {
   onScan: (result: string) => void
@@ -86,10 +86,11 @@ export function useOcrScanner({ onScan }: Options) {
       video.playsInline = true
 
       setStatus('OCR 엔진 로드 중...')
-      const worker = await createWorker('eng', undefined, {
+      const worker = await createWorker('eng')
+      await worker.setParameters({
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
-        // psm 7: 한 줄 텍스트로 간주 → 등록번호처럼 짧은 텍스트에 최적
-        tessedit_pageseg_mode: '7',
+        // PSM.SINGLE_LINE: 한 줄 텍스트로 간주 → 등록번호처럼 짧은 텍스트에 최적
+        tessedit_pageseg_mode: PSM.SINGLE_LINE,
       })
       workerRef.current = worker
 
