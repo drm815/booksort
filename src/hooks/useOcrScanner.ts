@@ -5,19 +5,21 @@ interface Options {
   onScan: (result: string) => void
 }
 
-// 등록번호 패턴: 영문자·숫자·하이픈으로 구성, 최소 4자 이상
-// 예: SE-000123, 000123456, ABC-12345
-const REG_PATTERN = /[A-Za-z가-힣]{0,4}[-]?\d{4,}/g
+// 등록번호 패턴: 영문 2~4자 + 숫자 4자 이상 (하이픈 선택)
+// 예: JRM022999, ABC-12345, SE000123
+const REG_PATTERN = /\b[A-Z]{2,4}-?\d{4,}\b/g
 
 function extractRegNumber(text: string): string | null {
-  const cleaned = text.replace(/\s+/g, ' ').trim()
+  // 공백·줄바꿈 정리 후 대문자로 통일
+  const cleaned = text.replace(/\s+/g, ' ').toUpperCase().trim()
   const matches = cleaned.match(REG_PATTERN)
   if (!matches) return null
-  // 가장 긴 매치를 우선 (노이즈 제거)
+  // 가장 긴 매치 우선 (노이즈 제거)
   return matches.sort((a, b) => b.length - a.length)[0] ?? null
 }
 
 const COOLDOWN_MS = 2500
+const CONFIRM_STREAK = 2  // 연속 N회 같은 값이어야 전송
 
 export function useOcrScanner({ onScan }: Options) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -28,6 +30,8 @@ export function useOcrScanner({ onScan }: Options) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastValueRef = useRef<string | null>(null)
   const lastTimeRef = useRef<number>(0)
+  const streakValueRef = useRef<string | null>(null)
+  const streakCountRef = useRef<number>(0)
 
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('초기화 중...')
@@ -39,6 +43,8 @@ export function useOcrScanner({ onScan }: Options) {
     timerRef.current = null
     streamRef.current = null
     scanningRef.current = false
+    streakValueRef.current = null
+    streakCountRef.current = 0
     if (workerRef.current) {
       await workerRef.current.terminate()
       workerRef.current = null
@@ -125,12 +131,28 @@ export function useOcrScanner({ onScan }: Options) {
 
           const regNum = extractRegNumber(text)
           if (regNum) {
-            const now = Date.now()
-            if (regNum !== lastValueRef.current || now - lastTimeRef.current > COOLDOWN_MS) {
-              lastValueRef.current = regNum
-              lastTimeRef.current = now
-              onScan(regNum)
+            // 연속 스트릭 누적
+            if (regNum === streakValueRef.current) {
+              streakCountRef.current += 1
+            } else {
+              streakValueRef.current = regNum
+              streakCountRef.current = 1
             }
+            // 연속 N회 같은 값이면 확정 전송
+            if (streakCountRef.current >= CONFIRM_STREAK) {
+              const now = Date.now()
+              if (regNum !== lastValueRef.current || now - lastTimeRef.current > COOLDOWN_MS) {
+                lastValueRef.current = regNum
+                lastTimeRef.current = now
+                streakValueRef.current = null
+                streakCountRef.current = 0
+                onScan(regNum)
+              }
+            }
+          } else {
+            // 인식 안 되면 스트릭 리셋
+            streakValueRef.current = null
+            streakCountRef.current = 0
           }
         } catch {
           // OCR 실패는 정상
