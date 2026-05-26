@@ -4,9 +4,10 @@ import { findShelfNeighbors } from './lib/shelfFinder'
 import { ScanPage } from './pages/ScanPage'
 import { ResultPage } from './pages/ResultPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { DuplicatePage } from './pages/DuplicatePage'
 import type { ShelfResult } from './types'
 
-type Mode = 'shelf' | 'inventory'
+type Mode = 'shelf' | 'inventory' | 'duplicate'
 
 function isInAppBrowser(): boolean {
   const ua = navigator.userAgent
@@ -76,6 +77,10 @@ export default function App() {
     return <InventoryPage onExit={() => setMode('shelf')} />
   }
 
+  if (mode === 'duplicate') {
+    return <DuplicatePage onExit={() => setMode('shelf')} />
+  }
+
   const handleScan = (bookId: string) => {
     setScanError(null)
     const trimmed = bookId.trim()
@@ -109,6 +114,7 @@ export default function App() {
         error={scanError ?? error}
         onRefresh={refresh}
         onInventory={() => setMode('inventory')}
+        onDuplicate={() => setMode('duplicate')}
       />
     </>
   )

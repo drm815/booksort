@@ -17,9 +17,10 @@ interface Props {
   error: string | null
   onRefresh: () => void
   onInventory: () => void
+  onDuplicate: () => void
 }
 
-export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInventory }: Props) {
+export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInventory, onDuplicate }: Props) {
   const [tab, setTab] = useState<Tab>('manual')
   const [numSuffix, setNumSuffix] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -43,6 +44,12 @@ export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInv
       <header className="bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
         <h1 className="font-bold text-lg">📚 책정리 도우미</h1>
         <div className="flex gap-2">
+          <button
+            onClick={onDuplicate}
+            className="text-white text-sm bg-blue-500 rounded-full px-3 py-1 active:bg-blue-700"
+          >
+            📚 복본조회
+          </button>
           <button
             onClick={onInventory}
             className="text-white text-sm bg-blue-500 rounded-full px-3 py-1 active:bg-blue-700"
