@@ -57,7 +57,7 @@ async function beep(type: 'ok' | 'duplicate' | 'error') {
 
 export function InventoryPage({ onExit }: Props) {
   const [tab, setTab] = useState<Tab>('manual')
-  const [numInput, setNumInput] = useState(PREFIX)
+  const [numSuffix, setNumSuffix] = useState('')   // JRM 뒤 숫자만 관리
   const inputRef = useRef<HTMLInputElement>(null)
   const [scanned, setScanned] = useState<Set<string>>(new Set())
   const [log, setLog] = useState<ScanRecord[]>([])
@@ -116,23 +116,14 @@ export function InventoryPage({ onExit }: Props) {
     if (tab === 'manual') setTimeout(() => inputRef.current?.focus(), 100)
   }, [tab])
 
-  const handleNumChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.toUpperCase()
-    // PREFIX는 항상 유지 — 지우려 하면 무시
-    if (!val.startsWith(PREFIX)) return
-    // PREFIX 이후는 숫자만 허용
-    const suffix = val.slice(PREFIX.length).replace(/[^0-9]/g, '')
-    setNumInput(PREFIX + suffix)
-  }, [])
-
   const handleNumSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    const bookId = numInput.trim()
-    if (bookId === PREFIX) return   // 숫자 없으면 무시
-    setNumInput(PREFIX)
+    if (!numSuffix) return
+    const bookId = PREFIX + numSuffix
+    setNumSuffix('')
     setTimeout(() => inputRef.current?.focus(), 50)
     handleScan(bookId)
-  }, [numInput, handleScan])
+  }, [numSuffix, handleScan])
 
   const statusBanner = () => {
     if (scanStatus === 'sending') return { text: '전송 중...', cls: 'bg-yellow-50 border-yellow-200 text-yellow-800' }
@@ -216,23 +207,30 @@ export function InventoryPage({ onExit }: Props) {
         {/* 번호 직접 입력 */}
         {tab === 'manual' && (
           <form onSubmit={handleNumSubmit} className="flex flex-col gap-3">
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              value={numInput}
-              onChange={handleNumChange}
-              className="border-2 border-green-500 rounded-xl px-4 py-4 text-2xl font-mono tracking-widest focus:outline-none focus:border-green-600 focus:ring-2 focus:ring-green-200 bg-white"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
+            <div className="flex items-center border-2 border-green-500 rounded-xl bg-white overflow-hidden focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-200">
+              {/* JRM 고정 표시 */}
+              <span className="pl-4 py-4 text-2xl font-mono font-bold text-green-600 select-none pointer-events-none">
+                {PREFIX}
+              </span>
+              {/* 숫자만 입력 */}
+              <input
+                ref={inputRef}
+                type="tel"
+                value={numSuffix}
+                onChange={(e) => setNumSuffix(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="022999"
+                className="flex-1 pr-4 py-4 text-2xl font-mono tracking-widest focus:outline-none bg-transparent"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
             <button
               type="submit"
-              disabled={numInput === PREFIX}
+              disabled={!numSuffix}
               className="w-full py-4 rounded-xl text-lg font-bold bg-green-600 text-white active:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              등록
+              등록 → {numSuffix ? `${PREFIX}${numSuffix}` : ''}
             </button>
           </form>
         )}
