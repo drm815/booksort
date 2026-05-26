@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ScannerView } from '../components/ScannerView'
+import { OcrScannerView } from '../components/OcrScannerView'
 
 const PREFIX = 'JRM'
 
@@ -69,6 +69,14 @@ export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInv
         {/* 탭 */}
         <div className="flex gap-2">
           <button
+            onClick={() => setTab('manual')}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              tab === 'manual' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+            }`}
+          >
+            ⌨️ 번호입력
+          </button>
+          <button
             onClick={() => setTab('camera')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
               tab === 'camera' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
@@ -76,18 +84,10 @@ export function ScanPage({ onScan, recentScans, loading, error, onRefresh, onInv
           >
             📷 카메라 스캔
           </button>
-          <button
-            onClick={() => setTab('manual')}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-              tab === 'manual' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}
-          >
-            ⌨️ 번호 입력
-          </button>
         </div>
 
         {/* 탭 콘텐츠 */}
-        {tab === 'camera' && <ScannerView onScan={handleScan} />}
+        {tab === 'camera' && <OcrScannerView onScan={handleScan} />}
         {tab === 'manual' && (
           <form onSubmit={handleNumSubmit} className="flex flex-col gap-3">
             <div className="flex items-center border-2 border-blue-500 rounded-xl bg-white overflow-hidden focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-200">
