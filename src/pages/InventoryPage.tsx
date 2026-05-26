@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ScannerView } from '../components/ScannerView'
+import { OcrScannerView } from '../components/OcrScannerView'
 import { ManualInput } from '../components/ManualInput'
 import { submitInventoryScan } from '../lib/inventoryStore'
 
-type Tab = 'camera' | 'manual'
+type Tab = 'barcode' | 'ocr' | 'manual'
 type ScanStatus = 'idle' | 'sending' | 'ok' | 'duplicate' | 'error'
 
 interface ScanRecord {
@@ -55,7 +56,7 @@ async function beep(type: 'ok' | 'duplicate' | 'error') {
 }
 
 export function InventoryPage({ onExit }: Props) {
-  const [tab, setTab] = useState<Tab>('camera')
+  const [tab, setTab] = useState<Tab>('ocr')
   const [scanned, setScanned] = useState<Set<string>>(new Set())
   const [log, setLog] = useState<ScanRecord[]>([])
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
@@ -168,30 +169,36 @@ export function InventoryPage({ onExit }: Props) {
         )}
 
         {/* 탭 */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <button
-            onClick={() => setTab('camera')}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-              tab === 'camera' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+            onClick={() => setTab('ocr')}
+            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+              tab === 'ocr' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}
           >
-            📷 카메라 스캔
+            🔤 등록번호
+          </button>
+          <button
+            onClick={() => setTab('barcode')}
+            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+              tab === 'barcode' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+            }`}
+          >
+            📷 바코드
           </button>
           <button
             onClick={() => setTab('manual')}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
               tab === 'manual' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}
           >
-            ⌨️ 번호 입력
+            ⌨️ 직접입력
           </button>
         </div>
 
-        {tab === 'camera' ? (
-          <ScannerView onScan={handleScan} />
-        ) : (
-          <ManualInput onSubmit={handleScan} />
-        )}
+        {tab === 'ocr' && <OcrScannerView onScan={handleScan} />}
+        {tab === 'barcode' && <ScannerView onScan={handleScan} />}
+        {tab === 'manual' && <ManualInput onSubmit={handleScan} />}
 
         {/* 스캔 로그 */}
         {log.length > 0 && (
