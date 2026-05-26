@@ -26,18 +26,19 @@ function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
   })
 }
 
-const SCAN_INTERVAL_MS = 300      // 인식 시도 간격 (ms) — 너무 빠르면 오인식↑
-const CONFIRM_WINDOW_MS = 900     // 이 시간 안에 같은 값이 과반수면 확정
-const COOLDOWN_MS = 2000          // 같은 바코드 재전송 방지 시간
+const SCAN_INTERVAL_MS = 150      // 인식 시도 간격 — 빠를수록 반응성↑
+const CONFIRM_STREAK = 2          // 연속 N회 같은 값이면 확정
+const COOLDOWN_MS = 2500          // 같은 바코드 재전송 방지 시간
 
 export function useScanner({ onScan }: Options) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const scanningRef = useRef(false)                  // 진행 중인 detect() 겹침 방지
+  const scanningRef = useRef(false)           // 진행 중인 detect() 겹침 방지
   const lastValueRef = useRef<string | null>(null)
   const lastTimeRef = useRef<number>(0)
-  const windowRef = useRef<string[]>([])             // 최근 N회 인식 결과 윈도우
+  const streakValueRef = useRef<string | null>(null)  // 현재 연속 중인 값
+  const streakCountRef = useRef<number>(0)             // 연속 횟수
   const [error, setScannerError] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('초기화 중...')
 
@@ -47,7 +48,8 @@ export function useScanner({ onScan }: Options) {
     timerRef.current = null
     streamRef.current = null
     scanningRef.current = false
-    windowRef.current = []
+    streakValueRef.current = null
+    streakCountRef.current = 0
   }, [])
 
   const start = useCallback(async () => {
@@ -62,10 +64,15 @@ export function useScanner({ onScan }: Options) {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
       })
+      // 가능하면 자동 포커스 연속 모드 적용
+      try {
+        const track = stream.getVideoTracks()[0]
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] })
+      } catch { /* 미지원 기기는 무시 */ }
       streamRef.current = stream
 
       if (!videoRef.current) return
@@ -97,27 +104,29 @@ export function useScanner({ onScan }: Options) {
             const results = await detector.detect(videoRef.current)
             const value = results.length > 0 ? results[0].rawValue : null
 
-            // 슬라이딩 윈도우에 결과 추가 (윈도우 크기 = CONFIRM_WINDOW_MS / SCAN_INTERVAL_MS)
-            const windowSize = Math.ceil(CONFIRM_WINDOW_MS / SCAN_INTERVAL_MS)
-            windowRef.current = [...windowRef.current.slice(-(windowSize - 1)), value ?? '']
-
-            // 윈도우가 꽉 찼을 때 과반수 값 확인
-            if (windowRef.current.length >= windowSize) {
-              const counts: Record<string, number> = {}
-              for (const v of windowRef.current) {
-                if (v) counts[v] = (counts[v] ?? 0) + 1
+            if (value) {
+              // 같은 값이면 연속 카운트 증가, 다른 값이면 리셋
+              if (value === streakValueRef.current) {
+                streakCountRef.current += 1
+              } else {
+                streakValueRef.current = value
+                streakCountRef.current = 1
               }
-              const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-              if (best && best[1] >= Math.ceil(windowSize / 2)) {
-                const confirmed = best[0]
+              // 연속 N회 달성 시 확정
+              if (streakCountRef.current >= CONFIRM_STREAK) {
                 const now = Date.now()
-                if (confirmed !== lastValueRef.current || now - lastTimeRef.current > COOLDOWN_MS) {
-                  lastValueRef.current = confirmed
+                if (value !== lastValueRef.current || now - lastTimeRef.current > COOLDOWN_MS) {
+                  lastValueRef.current = value
                   lastTimeRef.current = now
-                  windowRef.current = [] // 확정 후 윈도우 초기화
-                  onScan(confirmed)
+                  streakValueRef.current = null
+                  streakCountRef.current = 0
+                  onScan(value)
                 }
               }
+            } else {
+              // 인식 안 되면 연속 카운트 리셋
+              streakValueRef.current = null
+              streakCountRef.current = 0
             }
           } catch {
             // 인식 실패는 정상
