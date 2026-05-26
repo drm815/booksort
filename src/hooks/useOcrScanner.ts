@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { createWorker, PSM } from 'tesseract.js'
 
 interface Options {
   onScan: (result: string) => void
@@ -20,24 +19,21 @@ const BOX_W_RATIO = 0.8
 const BOX_Y_RATIO = 0.38
 const BOX_H_RATIO = 0.24
 
-function preprocessCanvas(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const imageData = ctx.getImageData(0, 0, w, h)
-  const d = imageData.data
-  const n = d.length / 4
-  const gray = new Uint8Array(n)
-  for (let i = 0; i < n; i++) {
-    gray[i] = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2])
-  }
-  let min = 255, max = 0
-  for (let i = 0; i < n; i++) { if (gray[i] < min) min = gray[i]; if (gray[i] > max) max = gray[i] }
-  const range = max - min || 1
-  for (let i = 0; i < n; i++) {
-    const norm = ((gray[i] - min) / range) * 255
-    const val = norm > 128 ? 255 : 0
-    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = val
-    d[i * 4 + 3] = 255
-  }
-  ctx.putImageData(imageData, 0, 0)
+// GAS OCR 엔드포인트 (장서점검과 별도 URL — CORS 허용 배포)
+const OCR_URL = import.meta.env.VITE_OCR_SCRIPT_URL
+
+async function callVisionOcr(canvas: HTMLCanvasElement): Promise<string> {
+  if (!OCR_URL) throw new Error('VITE_OCR_SCRIPT_URL 환경변수가 설정되지 않았습니다.')
+  const base64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1]
+  const res = await fetch(OCR_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'ocr', image: base64 }),
+  })
+  if (!res.ok) throw new Error(`서버 오류: ${res.status}`)
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.message || 'OCR 실패')
+  return String(data.text ?? '')
 }
 
 export type OcrState = 'idle' | 'scanning' | 'done' | 'error'
@@ -46,28 +42,20 @@ export function useOcrScanner({ onScan }: Options) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const workerRef = useRef<Awaited<ReturnType<typeof createWorker>> | null>(null)
-  const activeRef = useRef(false)
 
   const [error, setError] = useState<string | null>(null)
   const [camReady, setCamReady] = useState(false)
   const [ocrState, setOcrState] = useState<OcrState>('idle')
-  const [ocrText, setOcrText] = useState<string>('')   // 인식된 원본 텍스트
-  const [result, setResult] = useState<string | null>(null)  // 패턴 매칭된 번호
+  const [ocrText, setOcrText] = useState<string>('')
+  const [result, setResult] = useState<string | null>(null)
 
-  const stop = useCallback(async () => {
-    activeRef.current = false
+  const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
-    if (workerRef.current) {
-      await workerRef.current.terminate()
-      workerRef.current = null
-    }
   }, [])
 
   const start = useCallback(async () => {
     setError(null)
-    activeRef.current = true
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setError('이 브라우저는 카메라를 지원하지 않습니다.')
@@ -92,14 +80,6 @@ export function useOcrScanner({ onScan }: Options) {
         video.addEventListener('loadeddata', () => resolve(), { once: true })
       })
       try { await video.play() } catch { video.muted = true; await video.play() }
-
-      // Tesseract 워커 백그라운드 로드
-      const worker = await createWorker('eng')
-      await worker.setParameters({
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
-        tessedit_pageseg_mode: PSM.SINGLE_LINE,
-      })
-      workerRef.current = worker
       setCamReady(true)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -111,9 +91,9 @@ export function useOcrScanner({ onScan }: Options) {
     }
   }, [])
 
-  // 셔터: 버튼 누를 때 1회 OCR
+  // 셔터: 버튼 누를 때 캡처 → GAS → Vision API → 결과 반환
   const capture = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !workerRef.current) return
+    if (!videoRef.current || !canvasRef.current) return
     if (ocrState === 'scanning') return
 
     setOcrState('scanning')
@@ -133,16 +113,14 @@ export function useOcrScanner({ onScan }: Options) {
       const sw = Math.floor(vw * BOX_W_RATIO)
       const sh = Math.floor(vh * BOX_H_RATIO)
 
-      canvas.width = sw * 3
-      canvas.height = sh * 3
-      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-      preprocessCanvas(ctx, canvas.width, canvas.height)
+      canvas.width = sw
+      canvas.height = sh
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
 
-      const { data: { text } } = await workerRef.current.recognize(canvas)
-      const trimmed = text.trim()
-      setOcrText(trimmed)
+      const text = await callVisionOcr(canvas)
+      setOcrText(text)
 
-      const regNum = extractRegNumber(trimmed)
+      const regNum = extractRegNumber(text)
       if (regNum) {
         setResult(regNum)
         setOcrState('done')
@@ -151,7 +129,9 @@ export function useOcrScanner({ onScan }: Options) {
         setResult(null)
         setOcrState('error')
       }
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'OCR 실패'
+      setOcrText(msg)
       setOcrState('error')
     }
   }, [ocrState, onScan])
