@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { ScannerView } from '../components/ScannerView'
 import { OcrScannerView } from '../components/OcrScannerView'
-import { ManualInput } from '../components/ManualInput'
 import { submitInventoryScan } from '../lib/inventoryStore'
 
-type Tab = 'barcode' | 'ocr' | 'manual'
+const PREFIX = 'JRM'
+
+type Tab = 'manual' | 'barcode' | 'ocr'
 type ScanStatus = 'idle' | 'sending' | 'ok' | 'duplicate' | 'error'
 
 interface ScanRecord {
@@ -56,7 +57,9 @@ async function beep(type: 'ok' | 'duplicate' | 'error') {
 }
 
 export function InventoryPage({ onExit }: Props) {
-  const [tab, setTab] = useState<Tab>('ocr')
+  const [tab, setTab] = useState<Tab>('manual')
+  const [numInput, setNumInput] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const [scanned, setScanned] = useState<Set<string>>(new Set())
   const [log, setLog] = useState<ScanRecord[]>([])
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
@@ -108,6 +111,22 @@ export function InventoryPage({ onExit }: Props) {
       setLog(prev => [{ id: trimmed, status: 'error' as const, message: msg }, ...prev].slice(0, 50))
     }
   }, [scanned])
+
+  // manual 탭으로 전환 시 자동 포커스
+  useEffect(() => {
+    if (tab === 'manual') setTimeout(() => inputRef.current?.focus(), 100)
+  }, [tab])
+
+  const handleNumSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    const digits = numInput.trim()
+    if (!digits) return
+    // 이미 영문자로 시작하면 그대로, 숫자만 입력했으면 JRM 붙이기
+    const bookId = /^[A-Za-z]/.test(digits) ? digits.toUpperCase() : `${PREFIX}${digits}`
+    setNumInput('')
+    setTimeout(() => inputRef.current?.focus(), 50)
+    handleScan(bookId)
+  }, [numInput, handleScan])
 
   const statusBanner = () => {
     if (scanStatus === 'sending') return { text: '전송 중...', cls: 'bg-yellow-50 border-yellow-200 text-yellow-800' }
@@ -171,12 +190,12 @@ export function InventoryPage({ onExit }: Props) {
         {/* 탭 */}
         <div className="flex gap-1.5">
           <button
-            onClick={() => setTab('ocr')}
+            onClick={() => setTab('manual')}
             className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-              tab === 'ocr' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+              tab === 'manual' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}
           >
-            🔤 등록번호
+            ⌨️ 번호입력
           </button>
           <button
             onClick={() => setTab('barcode')}
@@ -187,18 +206,49 @@ export function InventoryPage({ onExit }: Props) {
             📷 바코드
           </button>
           <button
-            onClick={() => setTab('manual')}
+            onClick={() => setTab('ocr')}
             className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-              tab === 'manual' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+              tab === 'ocr' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}
           >
-            ⌨️ 직접입력
+            🔤 OCR
           </button>
         </div>
 
-        {tab === 'ocr' && <OcrScannerView onScan={handleScan} />}
+        {/* 번호 직접 입력 */}
+        {tab === 'manual' && (
+          <form onSubmit={handleNumSubmit} className="flex flex-col gap-3">
+            <div className="flex items-center border-2 border-green-500 rounded-xl overflow-hidden bg-white focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-200">
+              <span className="px-4 py-4 text-lg font-bold text-green-700 bg-green-50 border-r border-green-200 select-none">
+                {PREFIX}
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={numInput}
+                onChange={(e) => setNumInput(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="숫자만 입력"
+                className="flex-1 px-4 py-4 text-xl font-mono tracking-widest focus:outline-none"
+                autoComplete="off"
+              />
+            </div>
+            <p className="text-xs text-gray-400 text-center">
+              입력 후 전송 → <span className="font-mono font-semibold text-gray-600">{PREFIX}{numInput || '______'}</span> 로 등록됩니다
+            </p>
+            <button
+              type="submit"
+              disabled={!numInput}
+              className="w-full py-4 rounded-xl text-lg font-bold bg-green-600 text-white active:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              등록
+            </button>
+          </form>
+        )}
+
         {tab === 'barcode' && <ScannerView onScan={handleScan} />}
-        {tab === 'manual' && <ManualInput onSubmit={handleScan} />}
+        {tab === 'ocr' && <OcrScannerView onScan={handleScan} />}
 
         {/* 스캔 로그 */}
         {log.length > 0 && (
